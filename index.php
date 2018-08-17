@@ -15,18 +15,136 @@
 		{
 			max-width: 20em;
 		}
+		table
+		{
+			border-collapse: collapse;
+		}
+		td
+		{
+			border: 1px solid black;
+			padding: 0.5em;
+		}
+		td td
+		{
+			border: 1px dotted gray;
+		}
 	</style>
 </head>
 
 <body>
 <h1>SVSU Courses</h1>
 
+<a href="https://github.com/pjpiwowa/prog04">Source Code</a>
+
 <?php
 
-function filter_courses(/* array */ $courses)
+function indent(/* int */ $n, /* string */ $s)
+{
+	$ret = "";
+	for ($index = 0; $index < $n; $index += 1)
+	{
+		$ret = $ret . "\t";
+	}
+	return $ret . $s;
+}
+
+function filter_courses_by_day(/* array */ $courses, /* array of string */ $days)
 {
 	$ret = array();
+	foreach ($courses as $course)
+	{
+		foreach ($course->meetingTimes as $time)
+		{
+			foreach ($days as $day)
+			{
+				if(strstr($time->days, $day))
+				{
+					array_push($ret, $course);
+					break;
+				}
+			}
+		}
+	}
+	return $ret;
 }
+
+function course_table(/* array */ $courses)
+{ ?>
+<table id='courses'>
+	<thead>
+		<tr>
+			<th>Course</th>
+			<th>Description</th>
+			<th>Seats (Available/Total)</th>
+			<th>Meeting Times</th>
+			<th>Instructor(s)</th>
+		</tr>
+	</thead>
+	<tbody>
+<?php
+
+	// Convenience macros
+	function row_start()
+	{
+		return indent(2, "<tr>\n");
+	}
+
+	function row_end()
+	{
+		return indent(2, "</tr>\n");
+	}
+
+	function item_start()
+	{
+		return indent(3, "<td>");
+	}
+
+	function item_end()
+	{
+		return "</td>\n";
+	}
+
+	foreach ($courses as $course)
+	{
+		echo row_start();
+
+		echo item_start();
+		echo $course->prefix . $course->courseNumber . "*" . $course->lineNumber;
+		echo item_end();
+
+		echo item_start();
+		echo $course->title;
+		echo item_end();
+
+		echo item_start();
+		echo $course->seatsAvailable . "/" . $course->capacity;
+		echo item_end();
+
+		echo item_start();
+		echo "<table><tr>";
+		foreach ($course->meetingTimes as $time)
+		{
+			echo "<td>";
+			echo $time->method . ": " . $time->days . ": " . $time->startTime . " - " . $time->endTime . ", " . $time->dates . " @ " . $time->building . $time->room;
+			echo "</td>";
+		}
+		echo "</tr></table>";
+		echo item_end();
+
+		echo item_start();
+		foreach ($course->instructors as $instructor)
+		{
+			echo $instructor->username . " ";
+		}
+		echo item_end();
+
+		echo row_end();
+	}
+
+	?>
+	</tbody>
+</table>
+<?php }
 
 $api_base = "http://api.svsu.edu/courses?";
 $api_url = $api_base;
@@ -68,17 +186,58 @@ else
 	 */
 	$pile = file_get_contents($api_url);
 
-	if (!empty(pile))
+	if (!empty($pile))
 	{
 		$cobj = json_decode($pile);
-		$courses = $cobj["courses"];
+		$courses = $cobj->courses;
 
-		echo "<h2>Monday</h2>"
-		
+		$days = array();
+
+		if (isset($_GET['M']))
+		{
+			array_push($days, "M");
+		}
+		if (isset($_GET['T']))
+		{
+			array_push($days, "T");
+		}
+		if (isset($_GET['W']))
+		{
+			array_push($days, "W");
+		}
+		if (isset($_GET['R']))
+		{
+			array_push($days, "R");
+		}
+		if (isset($_GET['F']))
+		{
+			array_push($days, "F");
+		}
+		if (isset($_GET['S']))
+		{
+			array_push($days, "S");
+		}
+
+		if (!empty($days))
+		{
+			$filtered_courses = filter_courses_by_day($courses, $days);
+			if (!empty($filtered_courses))
+			{
+				course_table($filtered_courses);
+			}
+			else
+			{
+				echo "<p id='courses'>No courses meeting on specified day(s).</p>\n";
+			}
+		}
+		else
+		{
+			echo "<p id='courses'>No days selected...</p>\n";
+		}
 	}
 	else
 	{
-		echo "<p id='courses'>Hmm... the SVSU API returned no results.</p>";
+		echo "<p id='courses'>Hmm... the SVSU API returned no results.</p>\n";
 	}
 }
 
@@ -100,22 +259,22 @@ else
 
 	<fieldset>
 		<label>Mondays</label>
-		<input type='checkbox' name='dow' id='M' /><br />
+		<input type='checkbox' name='M' id='M' /><br />
 
 		<label>Tuesdays</label>
-		<input type='checkbox' name='dow' id='T' /><br />
+		<input type='checkbox' name='T' id='T' /><br />
 
 		<label>Wednesdays</label>
-		<input type='checkbox' name='dow' id='W' /><br />
+		<input type='checkbox' name='W' id='W' /><br />
 
 		<label>Thursdays</label>
-		<input type='checkbox' name='dow' id='R' /><br />
+		<input type='checkbox' name='R' id='R' /><br />
 
 		<label>Fridays</label>
-		<input type='checkbox' name='dow' id='F' /><br />
+		<input type='checkbox' name='F' id='F' /><br />
 
 		<label>Saturdays</label>
-		<input type='checkbox' name='dow' id='S' /><br />
+		<input type='checkbox' name='S' id='S' /><br />
 
 		<!--
 		     I can't figure out whether the (apparently undocumented)
